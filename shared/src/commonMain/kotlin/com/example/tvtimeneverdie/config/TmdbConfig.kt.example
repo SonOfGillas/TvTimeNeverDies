@@ -1,0 +1,14 @@
+package com.example.tvtimeneverdie.config
+
+/**
+ * Chiave API v3 di TMDB (themoviedb.org), gratuita: registrati su
+ * https://www.themoviedb.org/settings/api e incolla qui la tua "API Key (v3 auth)".
+ * Finche' resta il placeholder, le chiamate ai film falliranno con un errore visibile in UI
+ * (non un crash) - le funzionalita' sulle serie TV restano pienamente funzionanti.
+ *
+ * Copia questo file in "TmdbConfig.kt" (stessa cartella) e sostituisci il placeholder:
+ * TmdbConfig.kt e' nel .gitignore, quindi la tua chiave reale non finira' mai nel repository.
+ */
+object TmdbConfig {
+    const val API_KEY = "INSERISCI_LA_TUA_TMDB_API_KEY"
+}
