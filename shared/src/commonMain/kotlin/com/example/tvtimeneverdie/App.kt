@@ -1,7 +1,11 @@
 package com.example.tvtimeneverdie
 
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.tvtimeneverdie.di.AppContainer
@@ -13,12 +17,14 @@ import com.example.tvtimeneverdie.ui.theme.TvTimeTheme
 @Preview
 fun App() {
     TvTimeTheme {
-        val authUser by AppContainer.authRepository.currentUser.collectAsStateWithLifecycle(initialValue = null)
-        val user = authUser
-        if (user == null) {
-            LoginScreen()
-        } else {
-            MainScreen(user)
+        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            val authUser by AppContainer.authRepository.currentUser.collectAsStateWithLifecycle(initialValue = null)
+            val user = authUser
+            if (user == null) {
+                LoginScreen()
+            } else {
+                MainScreen(user)
+            }
         }
     }
 }

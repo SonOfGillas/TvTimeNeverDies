@@ -6,20 +6,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
 private val TvTimeYellow = Color(0xFFFFD400)
-private val DeepCharcoal = Color(0xFF111111)
+private val DarkGray = Color(0xFF2E2E32)
 private val SurfaceGray = Color(0xFF242424)
+private val OnAccentText = Color(0xFF1C1C1E)
 private val HighContrastWhite = Color(0xFFFFFFFF)
 private val MutedTextGray = Color(0xFF8E8E93)
 private val AlertRed = Color(0xFFFF3B30)
 
 private val TvTimeColorScheme = darkColorScheme(
     primary = TvTimeYellow,
-    onPrimary = DeepCharcoal,
+    onPrimary = OnAccentText,
     secondary = TvTimeYellow,
-    onSecondary = DeepCharcoal,
+    onSecondary = OnAccentText,
     tertiary = TvTimeYellow,
-    onTertiary = DeepCharcoal,
-    background = DeepCharcoal,
+    onTertiary = OnAccentText,
+    background = DarkGray,
     onBackground = HighContrastWhite,
     surface = SurfaceGray,
     onSurface = HighContrastWhite,
