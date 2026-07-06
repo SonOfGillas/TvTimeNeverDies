@@ -87,4 +87,12 @@ class ShowDetailViewModel(
             )
         }
     }
+
+    fun toggleSeasonWatched(season: Int) {
+        viewModelScope.launch {
+            val episodes = _uiState.value.episodesBySeason[season].orEmpty()
+            val allWatched = episodes.isNotEmpty() && episodes.all { it.id in _uiState.value.watchedEpisodeIds }
+            userShowsRepository.setSeasonWatched(uid, showId, episodes, watched = !allWatched)
+        }
+    }
 }

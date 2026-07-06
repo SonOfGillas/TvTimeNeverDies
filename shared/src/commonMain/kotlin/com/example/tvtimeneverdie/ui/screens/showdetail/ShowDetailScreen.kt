@@ -1,11 +1,16 @@
 package com.example.tvtimeneverdie.ui.screens.showdetail
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -13,10 +18,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -29,15 +36,21 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.example.tvtimeneverdie.domain.model.Episode
 import com.example.tvtimeneverdie.ui.rememberViewModel
+
+private val SeasonProgressGreen = Color(0xFF34C759)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,6 +62,7 @@ fun ShowDetailScreen(
 ) {
     val viewModel = rememberViewModel { ShowDetailViewModel(showId, uid) }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val expandedSeasons = remember { mutableStateMapOf<Int, Boolean>() }
 
     Scaffold(
         topBar = {
@@ -85,18 +99,15 @@ fun ShowDetailScreen(
                     }
                     state.episodesBySeason.forEach { (season, episodes) ->
                         item {
-                            Text(
-                                text = "Stagione $season",
-                                style = MaterialTheme.typography.titleMedium,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                            )
-                        }
-                        items(episodes, key = { it.id }) { episode ->
-                            EpisodeRow(
-                                episode = episode,
-                                isWatched = episode.id in state.watchedEpisodeIds,
-                                onToggleWatched = { viewModel.toggleEpisodeWatched(episode) },
-                                onClick = { onEpisodeClick(episode) },
+                            SeasonSection(
+                                season = season,
+                                episodes = episodes,
+                                watchedEpisodeIds = state.watchedEpisodeIds,
+                                expanded = expandedSeasons[season] ?: false,
+                                onToggleExpanded = { expandedSeasons[season] = !(expandedSeasons[season] ?: false) },
+                                onToggleSeasonWatched = { viewModel.toggleSeasonWatched(season) },
+                                onToggleEpisodeWatched = { viewModel.toggleEpisodeWatched(it) },
+                                onEpisodeClick = onEpisodeClick,
                             )
                         }
                     }
@@ -144,6 +155,102 @@ private fun ShowHeader(
         }
         Spacer(Modifier.height(12.dp))
         Text(summary, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+@Composable
+private fun SeasonSection(
+    season: Int,
+    episodes: List<Episode>,
+    watchedEpisodeIds: Set<Int>,
+    expanded: Boolean,
+    onToggleExpanded: () -> Unit,
+    onToggleSeasonWatched: () -> Unit,
+    onToggleEpisodeWatched: (Episode) -> Unit,
+    onEpisodeClick: (Episode) -> Unit,
+) {
+    val total = episodes.size
+    val watchedCount = episodes.count { it.id in watchedEpisodeIds }
+    val allWatched = total > 0 && watchedCount == total
+    val progress by animateFloatAsState(
+        targetValue = if (total > 0) watchedCount / total.toFloat() else 0f,
+        label = "seasonProgress",
+    )
+    val chevronRotation by animateFloatAsState(targetValue = if (expanded) 180f else 0f, label = "chevronRotation")
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onToggleExpanded)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Filled.KeyboardArrowDown,
+                contentDescription = null,
+                modifier = Modifier.rotate(chevronRotation),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = "Stagione $season",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = "$watchedCount/$total",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.width(12.dp))
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(if (allWatched) SeasonProgressGreen else Color.Transparent)
+                    .border(
+                        width = if (allWatched) 0.dp else 1.dp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        shape = CircleShape,
+                    )
+                    .clickable(onClick = onToggleSeasonWatched),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Check,
+                    contentDescription = if (allWatched) "Segna stagione da vedere" else "Segna stagione come vista",
+                    tint = if (allWatched) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp),
+                )
+            }
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .height(4.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(progress)
+                    .background(SeasonProgressGreen),
+            )
+        }
+        AnimatedVisibility(visible = expanded) {
+            Column {
+                episodes.forEach { episode ->
+                    EpisodeRow(
+                        episode = episode,
+                        isWatched = episode.id in watchedEpisodeIds,
+                        onToggleWatched = { onToggleEpisodeWatched(episode) },
+                        onClick = { onEpisodeClick(episode) },
+                    )
+                }
+            }
+        }
     }
 }
 

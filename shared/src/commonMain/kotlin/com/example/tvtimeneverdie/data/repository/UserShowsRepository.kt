@@ -1,5 +1,6 @@
 package com.example.tvtimeneverdie.data.repository
 
+import com.example.tvtimeneverdie.domain.model.Episode
 import com.example.tvtimeneverdie.util.currentTimeMillis
 import dev.gitlive.firebase.Firebase
 import dev.gitlive.firebase.firestore.firestore
@@ -64,6 +65,12 @@ class UserShowsRepository {
             )
         } else {
             doc.delete()
+        }
+    }
+
+    suspend fun setSeasonWatched(uid: String, showId: Int, episodes: List<Episode>, watched: Boolean) {
+        episodes.forEach { episode ->
+            setEpisodeWatched(uid, showId, episode.id, episode.season, episode.number, watched)
         }
     }
 
