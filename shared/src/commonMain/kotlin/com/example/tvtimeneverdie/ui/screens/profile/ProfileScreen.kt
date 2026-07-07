@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
@@ -109,6 +110,14 @@ fun ProfileScreen(
                             ) { progress ->
                                 ShowProgressGridItem(progress = progress, onClick = { onShowClick(progress.show.id) })
                             }
+
+                            if (state.isLoadingMoreSeries) {
+                                item(span = { GridItemSpan(maxLineSpan) }) {
+                                    Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                                    }
+                                }
+                            }
                         }
                     }
                     MediaType.MOVIES -> when {
@@ -130,6 +139,14 @@ fun ProfileScreen(
                                 items = state.toWatchMovies,
                                 emptyText = "Nessun film in Da vedere",
                             ) { movie -> MovieListRow(movie = movie, onClick = { onMovieClick(movie.id) }) }
+
+                            if (state.isLoadingMoreMovies) {
+                                item {
+                                    Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                                    }
+                                }
+                            }
                         }
                     }
                 }

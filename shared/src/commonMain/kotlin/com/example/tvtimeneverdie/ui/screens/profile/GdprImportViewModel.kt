@@ -13,18 +13,14 @@ import com.example.tvtimeneverdie.data.repository.UserShowsRepository
 import com.example.tvtimeneverdie.di.AppContainer
 import com.example.tvtimeneverdie.domain.model.Movie
 import com.example.tvtimeneverdie.domain.model.Show
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
+import com.example.tvtimeneverdie.util.mapConcurrently
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.sync.withPermit
 
 enum class ImportPhase {
     PICK_FILE,
@@ -215,12 +211,5 @@ class GdprImportViewModel(
 
             _uiState.update { it.copy(phase = ImportPhase.DONE, importedCount = imported) }
         }
-    }
-}
-
-private suspend fun <T, R> List<T>.mapConcurrently(maxConcurrency: Int, transform: suspend (T) -> R): List<R> {
-    val semaphore = Semaphore(maxConcurrency)
-    return coroutineScope {
-        map { item -> async { semaphore.withPermit { transform(item) } } }.awaitAll()
     }
 }
