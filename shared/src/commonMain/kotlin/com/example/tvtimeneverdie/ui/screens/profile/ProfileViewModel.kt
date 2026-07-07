@@ -13,6 +13,7 @@ import com.example.tvtimeneverdie.domain.model.Movie
 import com.example.tvtimeneverdie.domain.model.Show
 import com.example.tvtimeneverdie.domain.model.ShowProgress
 import com.example.tvtimeneverdie.domain.model.ShowWatchStatus
+import com.example.tvtimeneverdie.util.mapConcurrently
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,8 +22,13 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+private const val SERIES_CHUNK_SIZE = 24
+private const val MOVIES_CHUNK_SIZE = 24
+private const val FETCH_CONCURRENCY = 6
+
 data class ProfileUiState(
     val isLoadingSeries: Boolean = true,
+    val isLoadingMoreSeries: Boolean = false,
     val email: String? = null,
     val displayName: String? = null,
     val toWatch: List<Show> = emptyList(),
@@ -30,9 +36,15 @@ data class ProfileUiState(
     val completed: List<ShowProgress> = emptyList(),
     val seriesErrorMessage: String? = null,
     val isLoadingMovies: Boolean = true,
+    val isLoadingMoreMovies: Boolean = false,
     val toWatchMovies: List<Movie> = emptyList(),
     val watchedMovies: List<Movie> = emptyList(),
     val moviesErrorMessage: String? = null,
+)
+
+private data class SeriesFetchResult(
+    val toWatch: Show? = null,
+    val progress: ShowProgress? = null,
 )
 
 class ProfileViewModel(
@@ -77,56 +89,124 @@ class ProfileViewModel(
     }
 
     private suspend fun refreshSeries(watchlistIds: Set<Int>, watchedEntries: List<WatchedEpisodeEntry>) {
-        _uiState.update { it.copy(isLoadingSeries = true, seriesErrorMessage = null) }
+        _uiState.update { it.copy(isLoadingSeries = true, isLoadingMoreSeries = false, seriesErrorMessage = null) }
         try {
             val watchedByShow = watchedEntries.groupBy { it.showId }
             val allShowIds = (watchlistIds + watchedByShow.keys).distinct()
+            val chunks = allShowIds.chunked(SERIES_CHUNK_SIZE)
+
+            if (chunks.isEmpty()) {
+                _uiState.update {
+                    it.copy(isLoadingSeries = false, isLoadingMoreSeries = false, toWatch = emptyList(), watching = emptyList(), completed = emptyList())
+                }
+                return
+            }
 
             val toWatch = mutableListOf<Show>()
             val watching = mutableListOf<ShowProgress>()
             val completed = mutableListOf<ShowProgress>()
 
-            for (showId in allShowIds) {
-                val show = runCatching { tvShowRepository.getShow(showId) }.getOrNull() ?: continue
-                val watchedCount = watchedByShow[showId]?.size ?: 0
-                if (watchedCount == 0) {
-                    if (showId in watchlistIds) toWatch.add(show)
-                    continue
+            chunks.forEachIndexed { chunkIndex, chunk ->
+                val results = chunk.mapConcurrently(FETCH_CONCURRENCY) { showId ->
+                    val show = runCatching { tvShowRepository.getShow(showId) }.getOrNull()
+                    if (show == null) {
+                        SeriesFetchResult()
+                    } else {
+                        val watchedCount = watchedByShow[showId]?.size ?: 0
+                        if (watchedCount == 0) {
+                            if (showId in watchlistIds) SeriesFetchResult(toWatch = show) else SeriesFetchResult()
+                        } else {
+                            val totalCount = runCatching { tvShowRepository.getEpisodes(showId) }.getOrNull()?.size ?: watchedCount
+                            val status = if (totalCount > 0 && watchedCount >= totalCount) {
+                                ShowWatchStatus.COMPLETED
+                            } else {
+                                ShowWatchStatus.WATCHING
+                            }
+                            SeriesFetchResult(
+                                progress = ShowProgress(
+                                    show = show,
+                                    watchedEpisodeCount = watchedCount,
+                                    totalEpisodeCount = totalCount,
+                                    status = status,
+                                ),
+                            )
+                        }
+                    }
                 }
-                val totalCount = runCatching { tvShowRepository.getEpisodes(showId) }.getOrNull()?.size ?: watchedCount
-                val status = if (totalCount > 0 && watchedCount >= totalCount) {
-                    ShowWatchStatus.COMPLETED
-                } else {
-                    ShowWatchStatus.WATCHING
-                }
-                val progress = ShowProgress(
-                    show = show,
-                    watchedEpisodeCount = watchedCount,
-                    totalEpisodeCount = totalCount,
-                    status = status,
-                )
-                if (status == ShowWatchStatus.COMPLETED) completed.add(progress) else watching.add(progress)
-            }
 
-            _uiState.update {
-                it.copy(isLoadingSeries = false, toWatch = toWatch, watching = watching, completed = completed)
+                results.forEach { result ->
+                    result.toWatch?.let { toWatch.add(it) }
+                    result.progress?.let { progress ->
+                        if (progress.status == ShowWatchStatus.COMPLETED) completed.add(progress) else watching.add(progress)
+                    }
+                }
+
+                val hasMore = chunkIndex < chunks.lastIndex
+                _uiState.update {
+                    it.copy(
+                        isLoadingSeries = false,
+                        isLoadingMoreSeries = hasMore,
+                        toWatch = toWatch.sortedByDescending { show -> show.premiered ?: "" },
+                        watching = watching.sortedByDescending { progress -> progress.show.premiered ?: "" },
+                        completed = completed.sortedByDescending { progress -> progress.show.premiered ?: "" },
+                    )
+                }
             }
         } catch (e: Exception) {
             _uiState.update {
-                it.copy(isLoadingSeries = false, seriesErrorMessage = e.message ?: "Errore nel caricamento del profilo")
+                it.copy(
+                    isLoadingSeries = false,
+                    isLoadingMoreSeries = false,
+                    seriesErrorMessage = e.message ?: "Errore nel caricamento del profilo",
+                )
             }
         }
     }
 
     private suspend fun refreshMovies(watchlistIds: Set<Int>, watchedIds: Set<Int>) {
-        _uiState.update { it.copy(isLoadingMovies = true, moviesErrorMessage = null) }
+        _uiState.update { it.copy(isLoadingMovies = true, isLoadingMoreMovies = false, moviesErrorMessage = null) }
         try {
-            val toWatch = watchlistIds.mapNotNull { id -> runCatching { movieRepository.getMovie(id) }.getOrNull() }
-            val watched = watchedIds.mapNotNull { id -> runCatching { movieRepository.getMovie(id) }.getOrNull() }
-            _uiState.update { it.copy(isLoadingMovies = false, toWatchMovies = toWatch, watchedMovies = watched) }
+            val allMovieIds = (watchlistIds + watchedIds).distinct()
+            val chunks = allMovieIds.chunked(MOVIES_CHUNK_SIZE)
+
+            if (chunks.isEmpty()) {
+                _uiState.update {
+                    it.copy(isLoadingMovies = false, isLoadingMoreMovies = false, toWatchMovies = emptyList(), watchedMovies = emptyList())
+                }
+                return
+            }
+
+            val toWatch = mutableListOf<Movie>()
+            val watched = mutableListOf<Movie>()
+
+            chunks.forEachIndexed { chunkIndex, chunk ->
+                val movies = chunk.mapConcurrently(FETCH_CONCURRENCY) { id ->
+                    runCatching { movieRepository.getMovie(id) }.getOrNull()
+                }
+                movies.forEach { movie ->
+                    if (movie != null) {
+                        if (movie.id in watchlistIds) toWatch.add(movie)
+                        if (movie.id in watchedIds) watched.add(movie)
+                    }
+                }
+
+                val hasMore = chunkIndex < chunks.lastIndex
+                _uiState.update {
+                    it.copy(
+                        isLoadingMovies = false,
+                        isLoadingMoreMovies = hasMore,
+                        toWatchMovies = toWatch.sortedByDescending { movie -> movie.releaseDate ?: "" },
+                        watchedMovies = watched.sortedByDescending { movie -> movie.releaseDate ?: "" },
+                    )
+                }
+            }
         } catch (e: Exception) {
             _uiState.update {
-                it.copy(isLoadingMovies = false, moviesErrorMessage = e.message ?: "Errore nel caricamento dei film")
+                it.copy(
+                    isLoadingMovies = false,
+                    isLoadingMoreMovies = false,
+                    moviesErrorMessage = e.message ?: "Errore nel caricamento dei film",
+                )
             }
         }
     }

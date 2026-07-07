@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
@@ -89,12 +90,6 @@ fun ProfileScreen(
                             modifier = Modifier.fillMaxSize(),
                         ) {
                             profileGridSection(
-                                title = "Da vedere",
-                                items = state.toWatch,
-                                emptyText = "Nessuna serie in Da vedere",
-                            ) { show -> ShowGridItem(show = show, onClick = { onShowClick(show.id) }) }
-
-                            profileGridSection(
                                 title = "In corso",
                                 items = state.watching,
                                 emptyText = "Nessuna serie in corso",
@@ -103,11 +98,25 @@ fun ProfileScreen(
                             }
 
                             profileGridSection(
+                                title = "Da vedere",
+                                items = state.toWatch,
+                                emptyText = "Nessuna serie in Da vedere",
+                            ) { show -> ShowGridItem(show = show, onClick = { onShowClick(show.id) }) }
+
+                            profileGridSection(
                                 title = "Completate",
                                 items = state.completed,
                                 emptyText = "Nessuna serie completata",
                             ) { progress ->
                                 ShowProgressGridItem(progress = progress, onClick = { onShowClick(progress.show.id) })
+                            }
+
+                            if (state.isLoadingMoreSeries) {
+                                item(span = { GridItemSpan(maxLineSpan) }) {
+                                    Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                                    }
+                                }
                             }
                         }
                     }
@@ -120,16 +129,24 @@ fun ProfileScreen(
                         )
                         else -> LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
                             profileSection(
+                                title = "Viste",
+                                items = state.watchedMovies,
+                                emptyText = "Nessun film visto",
+                            ) { movie -> MovieListRow(movie = movie, onClick = { onMovieClick(movie.id) }) }
+
+                            profileSection(
                                 title = "Da vedere",
                                 items = state.toWatchMovies,
                                 emptyText = "Nessun film in Da vedere",
                             ) { movie -> MovieListRow(movie = movie, onClick = { onMovieClick(movie.id) }) }
 
-                            profileSection(
-                                title = "Viste",
-                                items = state.watchedMovies,
-                                emptyText = "Nessun film visto",
-                            ) { movie -> MovieListRow(movie = movie, onClick = { onMovieClick(movie.id) }) }
+                            if (state.isLoadingMoreMovies) {
+                                item {
+                                    Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                                    }
+                                }
+                            }
                         }
                     }
                 }
