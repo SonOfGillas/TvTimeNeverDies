@@ -1,5 +1,6 @@
 package com.example.tvtimeneverdie.ui.screens.profile
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,8 +19,12 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridScope
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -57,6 +62,11 @@ fun ProfileScreen(
     var selectedTab by remember { mutableStateOf(MediaType.SERIES) }
     var showImportDialog by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
+    var watchingExpanded by remember { mutableStateOf(true) }
+    var toWatchExpanded by remember { mutableStateOf(true) }
+    var completedExpanded by remember { mutableStateOf(true) }
+    var watchedMoviesExpanded by remember { mutableStateOf(true) }
+    var toWatchMoviesExpanded by remember { mutableStateOf(true) }
 
     if (showImportDialog) {
         GdprImportDialog(uid = uid, onDismiss = { showImportDialog = false })
@@ -135,6 +145,8 @@ fun ProfileScreen(
                                 title = "In corso",
                                 items = filteredWatching,
                                 emptyText = "Nessuna serie in corso",
+                                expanded = watchingExpanded,
+                                onToggleExpand = { watchingExpanded = !watchingExpanded },
                             ) { progress ->
                                 ShowProgressGridItem(progress = progress, onClick = { onShowClick(progress.show.id) })
                             }
@@ -143,12 +155,16 @@ fun ProfileScreen(
                                 title = "Da vedere",
                                 items = filteredToWatch,
                                 emptyText = "Nessuna serie in Da vedere",
+                                expanded = toWatchExpanded,
+                                onToggleExpand = { toWatchExpanded = !toWatchExpanded },
                             ) { show -> ShowGridItem(show = show, onClick = { onShowClick(show.id) }) }
 
                             profileGridSection(
                                 title = "Completate",
                                 items = filteredCompleted,
                                 emptyText = "Nessuna serie completata",
+                                expanded = completedExpanded,
+                                onToggleExpand = { completedExpanded = !completedExpanded },
                             ) { progress ->
                                 ShowProgressGridItem(progress = progress, onClick = { onShowClick(progress.show.id) })
                             }
@@ -174,12 +190,16 @@ fun ProfileScreen(
                                 title = "Viste",
                                 items = filteredWatchedMovies,
                                 emptyText = "Nessun film visto",
+                                expanded = watchedMoviesExpanded,
+                                onToggleExpand = { watchedMoviesExpanded = !watchedMoviesExpanded },
                             ) { movie -> MovieListRow(movie = movie, onClick = { onMovieClick(movie.id) }) }
 
                             profileSection(
                                 title = "Da vedere",
                                 items = filteredToWatchMovies,
                                 emptyText = "Nessun film in Da vedere",
+                                expanded = toWatchMoviesExpanded,
+                                onToggleExpand = { toWatchMoviesExpanded = !toWatchMoviesExpanded },
                             ) { movie -> MovieListRow(movie = movie, onClick = { onMovieClick(movie.id) }) }
 
                             if (state.isLoadingMoreMovies) {
@@ -201,15 +221,14 @@ private fun <T> LazyListScope.profileSection(
     title: String,
     items: List<T>,
     emptyText: String,
+    expanded: Boolean,
+    onToggleExpand: () -> Unit,
     itemContent: @Composable (T) -> Unit,
 ) {
     item {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(vertical = 8.dp),
-        )
+        SectionHeader(title = title, expanded = expanded, onToggleExpand = onToggleExpand)
     }
+    if (!expanded) return
     if (items.isEmpty()) {
         item {
             Text(
@@ -227,15 +246,14 @@ private fun <T> LazyGridScope.profileGridSection(
     title: String,
     items: List<T>,
     emptyText: String,
+    expanded: Boolean,
+    onToggleExpand: () -> Unit,
     itemContent: @Composable (T) -> Unit,
 ) {
     item(span = { GridItemSpan(maxLineSpan) }) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(vertical = 8.dp),
-        )
+        SectionHeader(title = title, expanded = expanded, onToggleExpand = onToggleExpand)
     }
+    if (!expanded) return
     if (items.isEmpty()) {
         item(span = { GridItemSpan(maxLineSpan) }) {
             Text(
@@ -248,5 +266,24 @@ private fun <T> LazyGridScope.profileGridSection(
         items(items) { item ->
             itemContent(item)
         }
+    }
+}
+
+@Composable
+private fun SectionHeader(
+    title: String,
+    expanded: Boolean,
+    onToggleExpand: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onToggleExpand).padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(text = title, style = MaterialTheme.typography.titleMedium)
+        Icon(
+            imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+            contentDescription = if (expanded) "Comprimi" else "Espandi",
+        )
     }
 }
